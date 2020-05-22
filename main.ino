@@ -165,8 +165,13 @@ void autoHoming()
     
 }
 
-void moveAxis1(){
-
+void runAllAxis(){
+    axis1.run();
+    axis2.run();
+    axis3.run();
+    axis4.run();
+    axis5.run();
+    axis6.run();
 }
 void setup()
 {
