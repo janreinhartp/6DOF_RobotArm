@@ -2,9 +2,12 @@
 #include <AccelStepper.h> // Stepper Driver Library
 #include <Servo.h> // Servo Library
 #include <EEPROMex.h> // EEPROM Library - For Saving values
-
+#include <SoftwareSerial.h>
 
 // Declaration of Pin outs
+
+//Bluetooth Side
+SoftwareSerial Bluetooth(0, 1); // Arduino(RX, TX) - HC-05 Bluetooth (TX, RX)
 
 //Stepper Side
 AccelStepper axis1(AccelStepper::FULL2WIRE, 40, 41); // Create stepper axis1
@@ -29,6 +32,13 @@ int limitAx4Val = 1;
 int limitAx5Val = 1;
 int limitAx6Val = 1;
 
+Servo effector;  // create servo object to control a servo
+
+// Declaration of Variables
+
+//Bluetooth Side
+String dataIn = "";
+
 //Stepper Value Holder
 int currentPosAx1 = 0;
 int currentPosAx2 = 0;
@@ -37,9 +47,13 @@ int currentPosAx4 = 0;
 int currentPosAx5 = 0;
 int currentPosAx6 = 0;
 
-Servo effector;  // create servo object to control a servo
-
-// Declaration of Variables
+//Stepper Pos Holder
+int PosAx1 = 0;
+int PosAx2 = 0;
+int PosAx3 = 0;
+int PosAx4 = 0;
+int PosAx5 = 0;
+int PosAx6 = 0;
 
 // Declaration of Functions
 
@@ -214,5 +228,123 @@ void setup()
 
 void loop()
 {
+     if (Bluetooth.available() > 0) {
+    dataIn = Bluetooth.readString();  // Read the data as string
     
+    // If "Waist" slider has changed value - Move Stepper 1 to position
+    if (dataIn.startsWith("a1")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx1 = dataInS.toInt();  // Convert the string into integer
+        axis1.moveTo(PosAx1);
+      currentPosAx1 = PosAx1;   // set current position as previous position
+    }
+
+    // If "Shoulder" slider has changed value - Move Stepper 2 to position
+    if (dataIn.startsWith("a2")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx2 = dataInS.toInt();  // Convert the string into integer
+        axis2.moveTo(PosAx2);
+      currentPosAx2 = PosAx2;   // set current position as previous position
+    }
+
+    // If "Elbow" slider has changed value - Move Stepper 1 to position
+    if (dataIn.startsWith("a3")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx3 = dataInS.toInt();  // Convert the string into integer
+        axis3.moveTo(PosAx3);
+      currentPosAx3 = PosAx3;   // set current position as previous position
+    }
+    
+    // If "Wrist Rotation" slider has changed value - Move Stepper 1 to position
+    if (dataIn.startsWith("a4")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx4 = dataInS.toInt();  // Convert the string into integer
+        axis4.moveTo(PosAx4);
+      currentPosAx4 = PosAx4;   // set current position as previous position
+    }
+
+    // If "Wrist Vertical" slider has changed value - Move Stepper 1 to position
+    if (dataIn.startsWith("a5")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx5 = dataInS.toInt();  // Convert the string into integer
+        axis5.moveTo(PosAx5);
+      currentPosAx5 = PosAx5;   // set current position as previous position
+    }
+
+    // If "Arm Rotation" slider has changed value - Move Stepper 1 to position
+    if (dataIn.startsWith("a6")) {
+      String dataInS = dataIn.substring(2, dataIn.length()); // Extract only the number. E.g. from "s1120" to "120"
+      PosAx6 = dataInS.toInt();  // Convert the string into integer
+        axis6.moveTo(PosAx6);
+      currentPosAx6 = PosAx6;   // set current position as previous position
+    }
+
+    // Move CLAW 
+    if (dataIn.startsWith("c1")) {
+      String dataInS = dataIn.substring(2, dataIn.length());
+      servo6Pos = dataInS.toInt();
+      if (servo6PPos > servo6Pos) {
+        for ( int j = servo6PPos; j >= servo6Pos; j--) {
+          servo06.write(j);
+          delay(30);
+        }
+      }
+      if (servo6PPos < servo6Pos) {
+        for ( int j = servo6PPos; j <= servo6Pos; j++) {
+          servo06.write(j);
+          delay(30);
+        }
+      }
+      servo6PPos = servo6Pos; 
+    }
+    // If button "SAVE" is pressed
+    if (dataIn.startsWith("SAVE")) {
+      servo01SP[index] = servo1PPos;  // save position into the array
+      servo02SP[index] = servo2PPos;
+      servo03SP[index] = servo3PPos;
+      servo04SP[index] = servo4PPos;
+      servo05SP[index] = servo5PPos;
+      servo06SP[index] = servo6PPos;
+      index++;                        // Increase the array index
+    }
+    // If button "RUN" is pressed
+    if (dataIn.startsWith("RUN")) {
+      runservo();  // Automatic mode - run the saved steps 
+    }
+    // If button "RESET" is pressed
+    if ( dataIn == "RESET") {
+      memset(servo01SP, 0, sizeof(servo01SP)); // Clear the array data to 0
+      memset(servo02SP, 0, sizeof(servo02SP));
+      memset(servo03SP, 0, sizeof(servo03SP));
+      memset(servo04SP, 0, sizeof(servo04SP));
+      memset(servo05SP, 0, sizeof(servo05SP));
+      memset(servo06SP, 0, sizeof(servo06SP));
+      index = 0;  // Index to 0
+    }
+  }
+}
+
+void runRobot(){
+    while (dataIn != "RESET") {   // Run the steps over and over again until "RESET" button is pressed
+    for (int i = 0; i <= index - 2; i++) {  // Run through all steps(index)
+      if (Bluetooth.available() > 0) {      // Check for incomding data
+        dataIn = Bluetooth.readString();
+        if ( dataIn == "PAUSE") {           // If button "PAUSE" is pressed
+          while (dataIn != "RUN") {         // Wait until "RUN" is pressed again
+            if (Bluetooth.available() > 0) {
+              dataIn = Bluetooth.readString();
+              if ( dataIn == "RESET") {     
+                break;
+              }
+            }
+          }
+        }
+        // If speed slider is changed
+        if (dataIn.startsWith("ss")) {
+          String dataInS = dataIn.substring(2, dataIn.length());
+          speedDelay = dataInS.toInt(); // Change servo speed (delay time)
+        }
+      }
+     }
+    }
 }
